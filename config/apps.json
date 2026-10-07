@@ -1,0 +1,7 @@
+{
+  "chrome": "%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe",
+  "vscode": "%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe",
+  "discord": "%LOCALAPPDATA%\\Discord\\app-*\\Discord.exe",
+  "steam": "%ProgramFiles(x86)%\\Steam\\steam.exe",
+  "valorant": "C:\\Riot Games\\Riot Client\\RiotClientServices.exe"
+}

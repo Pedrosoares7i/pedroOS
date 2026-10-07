@@ -1,0 +1,11 @@
+{
+  "systemName": "PEDRO SYSTEM",
+  "monitorInterval": 1,
+  "historySize": 60,
+  "theme": "dark",
+  "logMaxMB": 2,
+  "metricHistoryMaxLines": 5000,
+  "gaming": {
+    "closeBeforeGaming": []
+  }
+}

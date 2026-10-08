@@ -16,7 +16,7 @@ function Show-PedroHelp {
             'disk'='disk - Displays local fixed drives, used/free space and percentage.'
             'security'='security - Reads Defender, firewall, antivirus and latest hotfix status.'
             'clean'='clean - Opens the safe maintenance menu. Destructive actions are not automatic.'
-            'gaming'='gaming | gaming close <app> - Gaming launcher/monitor and safe app closing.'
+            'gaming'='gaming | gaming <profile> | gaming status | gaming restore | gaming close <app> - Starts and manages gaming profiles.'
             'report'='report - Generates a local TXT system report under reports/.'
             'settings'='settings | settings set <key> <value> - Views or edits basic settings.'
             'diagnostics'='diagnostics - Runs a compact health diagnostic without changing Windows.'
@@ -56,7 +56,11 @@ MAINTENANCE
   repair        Alias for maintenance menu
 
 GAMING
-  gaming        Gaming mode
+  gaming                Open gaming menu
+  gaming <profile>      Start a gaming profile
+  gaming status         Show active gaming session
+  gaming restore        Reopen apps closed by PEDRO SYSTEM
+  gaming close <app>    Close a safe app manually
 
 TOOLS
   report        Generate TXT report
@@ -152,7 +156,7 @@ function Invoke-PedroCommand {
     $aliases = Get-PedroAliases
     $aliasProp = $aliases.PSObject.Properties[$command]
     if ($aliasProp) {
-        Open-PedroApp ([string]$aliasProp.Value)
+        Open-PedroApp ([string]$aliasProp.Value) | Out-Null
         return $true
     }
 
@@ -163,8 +167,8 @@ function Invoke-PedroCommand {
         'apps'        = { if ($commandArgs.Count -ge 3 -and $commandArgs[0] -eq 'add') { Add-PedroApp $commandArgs[1] ($commandArgs[2..($commandArgs.Count-1)] -join ' ') } else { Show-PedroApps } }
         'alias'       = { if ($commandArgs.Count -ge 3 -and $commandArgs[0] -eq 'add') { Set-PedroAlias $commandArgs[1] $commandArgs[2] } elseif ($commandArgs.Count -ge 2 -and $commandArgs[0] -eq 'remove') { Remove-PedroAlias $commandArgs[1] } else { Show-PedroAliases } }
         'aliases'     = { Show-PedroAliases }
-        'open'        = { if ($commandArgs.Count) { Open-PedroApp $commandArgs[0] } else { Write-Host 'Usage: open <app>' } }
-        'close'       = { if ($commandArgs.Count) { Close-PedroApp $commandArgs[0] } else { Write-Host 'Usage: close <app>' } }
+        'open'        = { if ($commandArgs.Count) { Open-PedroApp $commandArgs[0] | Out-Null } else { Write-Host 'Usage: open <app>' } }
+        'close'       = { if ($commandArgs.Count) { Close-PedroApp $commandArgs[0] | Out-Null } else { Write-Host 'Usage: close <app>' } }
         'processes'   = { Show-PedroProcesses }
         'process'     = { Show-PedroProcessDetail $(if ($commandArgs.Count) {$commandArgs[0]} else {$null}) }
         'network'     = { Show-PedroNetwork }

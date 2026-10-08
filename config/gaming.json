@@ -1,0 +1,31 @@
+{
+  "profiles": {
+    "valorant": {
+      "displayName": "Valorant",
+      "app": "valorant",
+      "closeApps": ["chrome", "vscode"],
+      "keepApps": ["discord"],
+      "checkRiotClient": true,
+      "checkVanguard": true,
+      "launchArgs": ["--launch-product=valorant", "--launch-patchline=live"]
+    },
+    "minecraft": {
+      "displayName": "Minecraft",
+      "app": "minecraft",
+      "closeApps": ["chrome"],
+      "keepApps": []
+    },
+    "cs2": {
+      "displayName": "Counter-Strike 2",
+      "app": "steam",
+      "closeApps": ["chrome", "discord"],
+      "keepApps": []
+    },
+    "fortnite": {
+      "displayName": "Fortnite",
+      "app": "epic",
+      "closeApps": ["chrome"],
+      "keepApps": []
+    }
+  }
+}

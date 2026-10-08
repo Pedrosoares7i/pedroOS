@@ -3,6 +3,9 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $modules = @(
     'core\common.ps1',
+    'core\ui\console.ps1',
+    'core\services\config.ps1',
+    'core\services\session.ps1',
     'core\system.ps1',
     'core\storage.ps1',
     'core\network.ps1',
@@ -22,6 +25,7 @@ foreach ($module in $modules) {
 }
 
 Initialize-PedroDirectories
+Initialize-PedroGamingConfig
 Write-PedroLog 'PEDRO SYSTEM started'
 $settings = Get-PedroSettings
 $snapshot = Get-PedroSystemSnapshot
@@ -34,6 +38,7 @@ Write-Host ('=' * 60) -ForegroundColor DarkCyan
 Write-Host ''
 Write-Host "PC: $($snapshot.Computer)"
 Write-Host "OS: $($snapshot.OS)"
+Write-Host "VERSION: $(Get-PedroVersion)"
 Write-Host "STATUS: $($snapshot.Internet)" -ForegroundColor $(if ($snapshot.Internet -eq 'ONLINE') {'Green'} else {'Yellow'})
 Write-Host ''
 Write-Host ('CPU : ' + (New-PedroBar $snapshot.CPUUsage))

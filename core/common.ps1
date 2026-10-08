@@ -1,20 +1,51 @@
 # Common helpers for PEDRO SYSTEM (PowerShell 5.1 compatible)
 
+$script:PedroVersion = '0.2.1'
 $script:PedroRoot = Split-Path -Parent $PSScriptRoot
 $script:ConfigDir = Join-Path $script:PedroRoot 'config'
 $script:LogsDir = Join-Path $script:PedroRoot 'logs'
 $script:ReportsDir = Join-Path $script:PedroRoot 'reports'
 $script:HistoryDir = Join-Path $script:PedroRoot 'data\history'
+$script:SessionsDir = Join-Path $script:PedroRoot 'data\sessions'
 $script:LogFile = Join-Path $script:LogsDir 'system.log'
 $script:SettingsFile = Join-Path $script:ConfigDir 'settings.json'
 $script:AppsFile = Join-Path $script:ConfigDir 'apps.json'
 $script:AliasesFile = Join-Path $script:ConfigDir 'aliases.json'
+$script:GamingConfigFile = Join-Path $script:ConfigDir 'gaming.json'
+$script:GamingSessionFile = Join-Path $script:SessionsDir 'gaming-session.json'
 
 function Initialize-PedroDirectories {
-    @($script:ConfigDir, $script:LogsDir, $script:ReportsDir, $script:HistoryDir) | ForEach-Object {
+    @($script:ConfigDir, $script:LogsDir, $script:ReportsDir, $script:HistoryDir, $script:SessionsDir) | ForEach-Object {
         if (-not (Test-Path $_)) { New-Item -ItemType Directory -Path $_ -Force | Out-Null }
     }
     if (-not (Test-Path $script:LogFile)) { New-Item -ItemType File -Path $script:LogFile -Force | Out-Null }
+}
+
+function Get-PedroVersion {
+    return $script:PedroVersion
+}
+
+function Get-PedroPSVersion {
+    return $PSVersionTable.PSVersion.Major
+}
+
+function Get-PedroWindowsInfo {
+    try {
+        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+        return [pscustomobject]@{
+            Caption = $os.Caption
+            Version = $os.Version
+            Build = $os.BuildNumber
+            Architecture = $os.OSArchitecture
+        }
+    } catch {
+        return [pscustomobject]@{
+            Caption = 'N/A'
+            Version = 'N/A'
+            Build = 'N/A'
+            Architecture = $env:PROCESSOR_ARCHITECTURE
+        }
+    }
 }
 
 function Get-PedroSettings {

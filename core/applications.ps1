@@ -16,12 +16,45 @@ function Get-PedroApps {
     return [pscustomobject]@{}
 }
 
+function Get-PedroAppInfo {
+    param([string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) { return $null }
+
+    $apps = Get-PedroApps
+    $prop = $apps.PSObject.Properties[$Name.ToLowerInvariant()]
+    if (-not $prop) { return $null }
+
+    $path = Resolve-PedroAppPath ([string]$prop.Value)
+    $processName = $null
+    if (-not [string]::IsNullOrWhiteSpace($path)) {
+        $processName = [IO.Path]::GetFileNameWithoutExtension($path)
+    }
+
+    return [pscustomobject]@{
+        Name = $Name.ToLowerInvariant()
+        ConfiguredPath = [string]$prop.Value
+        ResolvedPath = $path
+        ProcessName = $processName
+        Exists = (-not [string]::IsNullOrWhiteSpace($path) -and (Test-Path $path))
+    }
+}
+
+function Test-PedroAppRunning {
+    param([string]$Name)
+    $info = Get-PedroAppInfo $Name
+    if (-not $info -or [string]::IsNullOrWhiteSpace($info.ProcessName)) { return $false }
+    return ($null -ne (Get-Process -Name $info.ProcessName -ErrorAction SilentlyContinue | Select-Object -First 1))
+}
+
 function Show-PedroApps {
     Write-PedroHeader 'APPLICATIONS'
     $apps = Get-PedroApps
     $props = @($apps.PSObject.Properties)
     if ($props.Count -eq 0) { Write-Host 'No applications configured.'; return }
-    $props | ForEach-Object { [pscustomobject]@{ Name=$_.Name; Path=$_.Value; Exists=(Test-Path (Resolve-PedroAppPath ([string]$_.Value))) } } | Format-Table -AutoSize
+    $props | ForEach-Object {
+        $info = Get-PedroAppInfo $_.Name
+        [pscustomobject]@{ Name=$_.Name; Path=$_.Value; Exists=$info.Exists }
+    } | Format-Table -AutoSize
     Write-Host 'Tip: apps add <name> "C:\path\app.exe"' -ForegroundColor DarkGray
 }
 
@@ -29,43 +62,45 @@ function Add-PedroApp {
     param([string]$Name, [string]$Path)
     if ([string]::IsNullOrWhiteSpace($Name) -or [string]::IsNullOrWhiteSpace($Path)) { Write-Host 'Usage: apps add <name> "C:\path\app.exe"'; return }
     $resolvedInput = Resolve-PedroAppPath $Path
-    if (-not (Test-Path $resolvedInput)) { Write-Host "Executable not found: $Path" -ForegroundColor Yellow; return }
+    if (-not (Test-Path $resolvedInput)) { Write-PedroWarn "Executable not found: $Path"; return }
     $apps = Get-PedroApps
     $map = [ordered]@{}
     foreach ($p in $apps.PSObject.Properties) { $map[$p.Name] = $p.Value }
     $map[$Name.ToLowerInvariant()] = $Path
-    if (Save-PedroJson $map $script:AppsFile) { Write-Host "Application saved: $Name" -ForegroundColor Green; Write-PedroLog "App config added: $Name" }
+    if (Save-PedroJson $map $script:AppsFile) { Write-PedroOk "Application saved: $Name"; Write-PedroLog "App config added: $Name" }
 }
 
 function Open-PedroApp {
     param([string]$Name)
-    if ([string]::IsNullOrWhiteSpace($Name)) { Write-Host 'Usage: open <app>'; return }
-    $apps = Get-PedroApps
-    $prop = $apps.PSObject.Properties[$Name.ToLowerInvariant()]
-    if (-not $prop) { Write-Host "Application not registered: $Name" -ForegroundColor Yellow; return }
-    $path = Resolve-PedroAppPath ([string]$prop.Value)
-    if (-not (Test-Path $path)) { Write-Host "Executable does not exist: $path" -ForegroundColor Red; return }
-    $procName = [IO.Path]::GetFileNameWithoutExtension($path)
-    if (Get-Process -Name $procName -ErrorAction SilentlyContinue) {
-        Write-Host "$Name is already running." -ForegroundColor Yellow
-        return
+    if ([string]::IsNullOrWhiteSpace($Name)) { Write-Host 'Usage: open <app>'; return $false }
+
+    $info = Get-PedroAppInfo $Name
+    if (-not $info) { Write-PedroWarn "Application not registered: $Name"; return $false }
+    if (-not $info.Exists) { Write-PedroError "Executable does not exist: $($info.ResolvedPath)"; return $false }
+
+    if (Test-PedroAppRunning $Name) {
+        Write-PedroWarn "$Name is already running."
+        return $true
     }
+
     try {
-        Start-Process -FilePath $path | Out-Null
-        Write-Host "Opened: $Name" -ForegroundColor Green
+        Start-Process -FilePath $info.ResolvedPath | Out-Null
+        Write-PedroOk "Opened: $Name"
         Write-PedroLog "Opened app: $Name"
-    } catch { Write-Host "Unable to open '$Name': $($_.Exception.Message)" -ForegroundColor Red }
+        return $true
+    } catch {
+        Write-PedroError "Unable to open '$Name': $($_.Exception.Message)"
+        return $false
+    }
 }
 
 function Close-PedroApp {
     param([string]$Name)
-    $apps = Get-PedroApps
-    $prop = $apps.PSObject.Properties[$Name.ToLowerInvariant()]
-    if ($prop) {
-        $resolved = Resolve-PedroAppPath ([string]$prop.Value)
-        $Name = [IO.Path]::GetFileNameWithoutExtension($resolved)
+    $info = Get-PedroAppInfo $Name
+    if ($info) {
+        return (Stop-PedroSafeProcess $info.ProcessName)
     }
-    Stop-PedroSafeProcess $Name
+    return (Stop-PedroSafeProcess $Name)
 }
 
 function Get-PedroAliases {
@@ -93,12 +128,12 @@ function Set-PedroAlias {
     param([string]$AliasName, [string]$AppName)
     if ([string]::IsNullOrWhiteSpace($AliasName) -or [string]::IsNullOrWhiteSpace($AppName)) { Write-Host 'Usage: alias add <alias> <app>'; return }
     $apps = Get-PedroApps
-    if (-not $apps.PSObject.Properties[$AppName.ToLowerInvariant()]) { Write-Host "Application not registered: $AppName" -ForegroundColor Yellow; return }
+    if (-not $apps.PSObject.Properties[$AppName.ToLowerInvariant()]) { Write-PedroWarn "Application not registered: $AppName"; return }
     $aliases = Get-PedroAliases
     $map = [ordered]@{}
     foreach ($p in $aliases.PSObject.Properties) { $map[$p.Name] = $p.Value }
     $map[$AliasName.ToLowerInvariant()] = $AppName.ToLowerInvariant()
-    if (Save-PedroAliases $map) { Write-Host "Alias saved: $AliasName -> $AppName" -ForegroundColor Green; Write-PedroLog "Alias added: $AliasName -> $AppName" }
+    if (Save-PedroAliases $map) { Write-PedroOk "Alias saved: $AliasName -> $AppName"; Write-PedroLog "Alias added: $AliasName -> $AppName" }
 }
 
 function Remove-PedroAlias {
@@ -110,6 +145,6 @@ function Remove-PedroAlias {
     foreach ($p in $aliases.PSObject.Properties) {
         if ($p.Name -ieq $AliasName) { $found = $true } else { $map[$p.Name] = $p.Value }
     }
-    if (-not $found) { Write-Host "Alias not found: $AliasName" -ForegroundColor Yellow; return }
-    if (Save-PedroAliases $map) { Write-Host "Alias removed: $AliasName" -ForegroundColor Green; Write-PedroLog "Alias removed: $AliasName" }
+    if (-not $found) { Write-PedroWarn "Alias not found: $AliasName"; return }
+    if (Save-PedroAliases $map) { Write-PedroOk "Alias removed: $AliasName"; Write-PedroLog "Alias removed: $AliasName" }
 }

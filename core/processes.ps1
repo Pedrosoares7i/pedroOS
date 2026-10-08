@@ -41,15 +41,24 @@ function Show-PedroProcessDetail {
 
 function Stop-PedroSafeProcess {
     param([string]$Name)
+
+    if ([string]::IsNullOrWhiteSpace($Name)) { return $false }
+
     $clean = [IO.Path]::GetFileNameWithoutExtension($Name).ToLowerInvariant()
     if ($script:ProtectedProcesses -contains $clean) {
-        Write-Host "Blocked: '$clean' is protected by PEDRO SYSTEM." -ForegroundColor Red
-        return
+        Write-PedroError "Blocked: '$clean' is protected by PEDRO SYSTEM."
+        return $false
     }
+
     try {
         $targets = @(Get-Process -Name $clean -ErrorAction Stop)
+        if ($targets.Count -eq 0) { return $false }
         foreach ($p in $targets) { Stop-Process -Id $p.Id -ErrorAction Stop }
-        Write-Host "Closed: $clean" -ForegroundColor Green
+        Write-PedroOk "Closed: $clean"
         Write-PedroLog "Closed process: $clean"
-    } catch { Write-Host "Unable to close '$clean': $($_.Exception.Message)" -ForegroundColor Yellow }
+        return $true
+    } catch {
+        Write-PedroWarn "Unable to close '$clean': $($_.Exception.Message)"
+        return $false
+    }
 }
